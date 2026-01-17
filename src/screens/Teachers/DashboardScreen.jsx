@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,10 @@ import {
 // ✅ Added FontAwesome5 for the Calendar Icon
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { COLORS, SHADOW } from "../../utils/theme";
+import { getSession } from "../../utils/session";
+import { fetchTeacherSubjects } from "../../utils/userApi";
+import { useResponsiveLayout } from "../../utils/responsive";
 
 // --- MOCK DATA ---
 const TEACHER_CLASSES = [
@@ -47,7 +51,7 @@ const TEACHER_CLASSES = [
 ];
 
 // --- COMPONENT: ANIMATED PRESSABLE CARD ---
-const AnimatedCard = ({ item, index, onPress }) => {
+const AnimatedCard = ({ item, index, onPress, containerStyle }) => {
   const slideAnim = useRef(new Animated.Value(50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -88,7 +92,7 @@ const AnimatedCard = ({ item, index, onPress }) => {
       }}
     >
       <TouchableOpacity
-        style={styles.card}
+        style={[styles.card, containerStyle]}
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
@@ -129,6 +133,8 @@ const AnimatedCard = ({ item, index, onPress }) => {
 };
 
 export default function DashboardScreen({ navigation }) {
+  const { gutter, contentMaxWidth } = useResponsiveLayout();
+  const [classes, setClasses] = useState(TEACHER_CLASSES);
   const handleNavigateToAttendance = (classItem) => {
     navigation.navigate("MarkAttendance", { classData: classItem });
   };
@@ -141,6 +147,32 @@ export default function DashboardScreen({ navigation }) {
   const handleNavigateToTimetable = () => {
     navigation.navigate("TimeTableView"); // Ensure this route exists in App.jsx
   };
+
+  useEffect(() => {
+    const loadClasses = async () => {
+      try {
+        const session = await getSession();
+        if (!session?.id) return;
+        const result = await fetchTeacherSubjects(session.id);
+        const mapped = (result.subjects || []).map((subject, index) => ({
+          id: subject.subjectId || String(index + 1),
+          name: subject.name,
+          time: subject.time || "",
+          totalStudents: subject.totalStudents || subject.students?.length || 0,
+          color: ["#4facfe", "#43e97b", "#fa709a", "#fbc2eb"][index % 4],
+          students: subject.students || [],
+        }));
+
+        if (mapped.length) setClasses(mapped);
+      } catch (error) {
+        console.error("Failed to load teacher classes:", error);
+      } finally {
+        // no-op
+      }
+    };
+
+    loadClasses();
+  }, []);
 
   // ✅ List Header Component (Contains Timetable Banner + Section Title)
   const renderHeader = () => (
@@ -185,7 +217,7 @@ export default function DashboardScreen({ navigation }) {
         colors={["#6200EE", "#8E2DE2"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.headerContainer}
+        style={[styles.headerContainer, { paddingHorizontal: gutter }]}
       >
         <SafeAreaView style={{ width: "100%" }}>
           <View style={styles.headerContent}>
@@ -211,9 +243,10 @@ export default function DashboardScreen({ navigation }) {
       </LinearGradient>
 
       {/* --- MAIN CONTENT --- */}
-      <View style={styles.bodyContainer}>
+      <View style={[styles.bodyContainer, { paddingHorizontal: gutter }]}
+      >
         <FlatList
-          data={TEACHER_CLASSES}
+          data={classes}
           keyExtractor={(item) => item.id}
           // ✅ Use ListHeaderComponent to scroll the banner with the list
           ListHeaderComponent={renderHeader}
@@ -222,9 +255,10 @@ export default function DashboardScreen({ navigation }) {
               item={item}
               index={index}
               onPress={() => handleNavigateToAttendance(item)}
+              containerStyle={{ width: "100%", maxWidth: contentMaxWidth }}
             />
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { alignItems: "center" }]}
           showsVerticalScrollIndicator={false}
         />
       </View>
@@ -241,7 +275,7 @@ export default function DashboardScreen({ navigation }) {
           {/* Mark Attendance (Middle) */}
           <TouchableOpacity
             style={styles.fabContainer}
-            onPress={() => handleNavigateToAttendance(TEACHER_CLASSES[0])}
+            onPress={() => handleNavigateToAttendance(classes[0] || TEACHER_CLASSES[0])}
             activeOpacity={0.8}
           >
             <LinearGradient colors={["#6200EE", "#B721FF"]} style={styles.fab}>
@@ -308,7 +342,7 @@ const styles = StyleSheet.create({
   },
 
   // Body
-  bodyContainer: { flex: 1, paddingHorizontal: 20 },
+  bodyContainer: { flex: 1 },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "700",
@@ -372,20 +406,16 @@ const styles = StyleSheet.create({
 
   // Modern Card
   card: {
-    backgroundColor: "white",
+    backgroundColor: COLORS.surface,
     padding: 16,
     borderRadius: 20,
     marginBottom: 16,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 4,
+    ...SHADOW.card,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: COLORS.border,
   },
   cardLeft: { flexDirection: "row", alignItems: "center" },
   iconContainer: {
@@ -396,19 +426,19 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 15,
   },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: "#2D3436" },
+  cardTitle: { fontSize: 16, fontWeight: "700", color: COLORS.text },
   timeContainer: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  cardSubtitle: { color: "#888", fontSize: 13, fontWeight: "500" },
+  cardSubtitle: { color: COLORS.textMuted, fontSize: 13, fontWeight: "500" },
 
   badge: {
-    backgroundColor: "#F3E5F5",
+    backgroundColor: "#EEF2FF",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     flexDirection: "row",
     alignItems: "center",
   },
-  badgeText: { color: "#6200EE", fontSize: 14, fontWeight: "700" },
+  badgeText: { color: COLORS.primary, fontSize: 14, fontWeight: "700" },
 
   // Floating Bottom Nav Dock
   floatingNavContainer: {
@@ -422,19 +452,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "white",
+    backgroundColor: COLORS.surface,
     width: "100%",
     paddingVertical: 12,
     paddingHorizontal: 30,
     borderRadius: 35,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 20,
+    ...SHADOW.card,
   },
   navItem: { alignItems: "center", justifyContent: "center" },
-  navText: { fontSize: 10, fontWeight: "600", marginTop: 4, color: "#999" },
+  navText: { fontSize: 10, fontWeight: "600", marginTop: 4, color: COLORS.textMuted },
 
   // FAB (Floating Action Button) in Middle
   fabContainer: {

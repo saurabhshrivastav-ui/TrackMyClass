@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome5 } from "@expo/vector-icons";
+import { useResponsiveLayout } from "../../utils/responsive";
 
 // --- Enable Layout Animations ---
 if (
@@ -230,6 +231,7 @@ const EditModal = ({ visible, onClose, onSave, initialData }) => {
 // --- Main Screen ---
 
 const TimeTableGenerator = ({ navigation }) => {
+  const { gutter, contentMaxWidth } = useResponsiveLayout();
   const [selectedClass, setSelectedClass] = useState(CLASSES[0]);
   const [selectedDay, setSelectedDay] = useState(DAYS[0]);
   const [schedule, setSchedule] = useState(INITIAL_DATA);
@@ -298,7 +300,7 @@ const TimeTableGenerator = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingHorizontal: gutter, maxWidth: contentMaxWidth, alignSelf: "center", width: "100%" }]}>
         <View>
           <Text style={styles.headerTitle}>Timetable Gen</Text>
           <Text style={styles.headerSub}>Create & Manage Schedules</Text>
@@ -312,87 +314,90 @@ const TimeTableGenerator = ({ navigation }) => {
       </View>
 
       <View style={styles.content}>
-        {/* Class Selector */}
-        <View style={styles.selectorSection}>
-          <Text style={styles.sectionLabel}>Select Class</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollRow}
-          >
-            {CLASSES.map((cls) => (
-              <SelectorPill
-                key={cls}
-                label={cls}
-                isActive={selectedClass === cls}
-                onPress={() => {
-                  animate();
-                  setSelectedClass(cls);
-                }}
-              />
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Day Selector */}
-        <View style={styles.selectorSection}>
-          <Text style={styles.sectionLabel}>Select Day</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.scrollRow}
-          >
-            {DAYS.map((day) => (
-              <SelectorPill
-                key={day}
-                label={day.slice(0, 3)}
-                isActive={selectedDay === day}
-                onPress={() => {
-                  animate();
-                  setSelectedDay(day);
-                }}
-              />
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Schedule List */}
-        <View style={styles.listContainer}>
-          <View style={styles.listHeader}>
-            <Text style={styles.listTitle}>{selectedDay}'s Schedule</Text>
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={() => {
-                setEditingItem(null);
-                setModalVisible(true);
-              }}
+        <View style={[styles.inner, { paddingHorizontal: gutter, maxWidth: contentMaxWidth }]}
+        >
+          {/* Class Selector */}
+          <View style={styles.selectorSection}>
+            <Text style={styles.sectionLabel}>Select Class</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.scrollRow, { paddingHorizontal: 0 }]}
             >
-              <FontAwesome5 name="plus" size={12} color={COLORS.white} />
-              <Text style={styles.addBtnText}>Add Slot</Text>
-            </TouchableOpacity>
+              {CLASSES.map((cls) => (
+                <SelectorPill
+                  key={cls}
+                  label={cls}
+                  isActive={selectedClass === cls}
+                  onPress={() => {
+                    animate();
+                    setSelectedClass(cls);
+                  }}
+                />
+              ))}
+            </ScrollView>
           </View>
 
-          <ScrollView contentContainerStyle={styles.listContent}>
-            {currentList.length === 0 ? (
-              <View style={styles.emptyState}>
-                <FontAwesome5 name="calendar-plus" size={40} color="#d1d5db" />
-                <Text style={styles.emptyText}>No classes scheduled.</Text>
-                <Text style={styles.emptySub}>Tap 'Add Slot' to begin.</Text>
-              </View>
-            ) : (
-              currentList.map((slot) => (
-                <SlotCard
-                  key={slot.id}
-                  data={slot}
-                  onEdit={() => {
-                    setEditingItem(slot);
-                    setModalVisible(true);
+          {/* Day Selector */}
+          <View style={styles.selectorSection}>
+            <Text style={styles.sectionLabel}>Select Day</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.scrollRow, { paddingHorizontal: 0 }]}
+            >
+              {DAYS.map((day) => (
+                <SelectorPill
+                  key={day}
+                  label={day.slice(0, 3)}
+                  isActive={selectedDay === day}
+                  onPress={() => {
+                    animate();
+                    setSelectedDay(day);
                   }}
-                  onDelete={() => handleDeleteSlot(slot.id)}
                 />
-              ))
-            )}
-          </ScrollView>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Schedule List */}
+          <View style={styles.listContainer}>
+            <View style={styles.listHeader}>
+              <Text style={styles.listTitle}>{selectedDay}'s Schedule</Text>
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => {
+                  setEditingItem(null);
+                  setModalVisible(true);
+                }}
+              >
+                <FontAwesome5 name="plus" size={12} color={COLORS.white} />
+                <Text style={styles.addBtnText}>Add Slot</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false}>
+              {currentList.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <FontAwesome5 name="calendar-plus" size={40} color="#d1d5db" />
+                  <Text style={styles.emptyText}>No classes scheduled.</Text>
+                  <Text style={styles.emptySub}>Tap 'Add Slot' to begin.</Text>
+                </View>
+              ) : (
+                currentList.map((slot) => (
+                  <SlotCard
+                    key={slot.id}
+                    data={slot}
+                    onEdit={() => {
+                      setEditingItem(slot);
+                      setModalVisible(true);
+                    }}
+                    onDelete={() => handleDeleteSlot(slot.id)}
+                  />
+                ))
+              )}
+            </ScrollView>
+          </View>
         </View>
       </View>
 
@@ -429,21 +434,29 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.contentBg,
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    paddingTop: 20,
+    paddingTop: 0,
     overflow: "hidden",
+    alignItems: "center",
+  },
+
+  inner: {
+    width: "100%",
+    alignSelf: "center",
+    paddingTop: 20,
+    paddingBottom: 24,
   },
 
   // Selectors
   selectorSection: { marginBottom: 15 },
   sectionLabel: {
-    marginLeft: 20,
+    marginLeft: 0,
     marginBottom: 8,
     fontSize: 12,
     fontWeight: "700",
     color: COLORS.textLight,
     textTransform: "uppercase",
   },
-  scrollRow: { paddingHorizontal: 20, paddingBottom: 10 },
+  scrollRow: { paddingHorizontal: 0, paddingBottom: 10 },
   pill: {
     paddingVertical: 8,
     paddingHorizontal: 20,
@@ -460,7 +473,7 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
     backgroundColor: COLORS.white,
-    marginHorizontal: 20,
+    marginHorizontal: 0,
     marginBottom: 20,
     borderRadius: 24,
     elevation: 5,
@@ -489,7 +502,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 12,
   },
-  listContent: { padding: 20, paddingBottom: 50 },
+  listContent: { padding: 16, paddingBottom: 50 },
 
   // Card
   card: {

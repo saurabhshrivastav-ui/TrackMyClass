@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   TextInput,
-  TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -12,10 +11,18 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
+import { saveSession } from "../utils/session";
+import { fetchUserByPhone } from "../utils/userApi";
+import { COLORS, RADIUS, SHADOW, SPACING, TYPOGRAPHY } from "../utils/theme";
+import AppScreen from "../components/ui/AppScreen";
+import Card from "../components/ui/Card";
+import Button from "../components/ui/Button";
+import { useResponsiveLayout } from "../utils/responsive";
 
 export default function LoginScreen({ navigation }) {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const { isTablet } = useResponsiveLayout();
 
   const [country, setCountry] = useState({
     code: "+91",
@@ -31,7 +38,7 @@ export default function LoginScreen({ navigation }) {
   ];
 
   // ✅ UPDATED LOGIN LOGIC
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!phone) {
       Alert.alert("Error", "Phone number is required");
       return;
@@ -47,34 +54,28 @@ export default function LoginScreen({ navigation }) {
 
     setLoading(true);
 
-    setTimeout(() => {
-      // ---------------------------------------------------------
-      // 1. CHECK FOR ADMIN LOGIN (New Logic)
-      // ---------------------------------------------------------
-      if (phone === "0000000000") {
-        navigation.replace("AdminPanel"); 
-      }
-      // ---------------------------------------------------------
-      // 2. CHECK FOR TEACHER LOGIN
-      // ---------------------------------------------------------
-      else if (phone === "9594663759") {
-        navigation.replace("TeacherDashboard");
-      }
-      // ---------------------------------------------------------
-      // 3. CHECK FOR STUDENT LOGIN
-      // ---------------------------------------------------------
-      else if (phone === "9321656320") {
-        navigation.replace("Main");
-      }
-      // ---------------------------------------------------------
-      // 4. INVALID CREDENTIALS
-      // ---------------------------------------------------------
-      else {
-        Alert.alert("Login Failed", "You have entered a wrong number");
-      }
+    try {
+      const fullPhone = `${country.code}${phone}`;
+      // Query by digits so it matches Mongo whether it stores plain digits
+      // (e.g. 9321656320) or full E.164 (e.g. +919321656320).
+      const user = await fetchUserByPhone(phone);
 
+      await saveSession({
+        role: user.role,
+        name: user.name,
+        id: user.id,
+        phone: fullPhone,
+        semester: user.semester,
+      });
+
+      if (user.role === "admin") navigation.replace("AdminPanel");
+      else if (user.role === "teacher") navigation.replace("TeacherDashboard");
+      else navigation.replace("Main");
+    } catch (error) {
+      Alert.alert("Login Failed", error.message || "User not found");
+    } finally {
       setLoading(false);
-    }, 800); 
+    }
   };
 
   return (
@@ -82,21 +83,23 @@ export default function LoginScreen({ navigation }) {
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* LOGO */}
-        <Ionicons name="school" size={60} color="#2F80ED" />
-        <Text style={styles.appName}>TrackMyClass</Text>
+      <AppScreen scroll backgroundColor={COLORS.background} contentStyle={styles.screenContent}>
+        <View style={styles.brandBlock}>
+          <View style={styles.logoWrapper}>
+            <Ionicons name="school" size={52} color={COLORS.primary} />
+          </View>
+          <Text style={styles.appName}>TrackMyClass</Text>
+          <Text style={styles.tagline}>Welcome back! Sign in to continue.</Text>
+        </View>
 
-        {/* CARD */}
-        <View style={styles.card}>
+        <Card padding={SPACING.lg} style={[styles.card, isTablet && styles.cardTablet]}>
           <Text style={styles.loginText}>Log In</Text>
-          <View style={styles.underline} />
+          <Text style={styles.loginSubtext}>Use your registered phone number</Text>
 
-          <Text style={styles.subText}>
-            Select country code and enter phone number
-          </Text>
+          <Text style={styles.subText}>Select country code and enter phone number</Text>
 
           {/* COUNTRY CODE DROPDOWN */}
+          <Text style={styles.label}>Country</Text>
           <View style={styles.dropdown}>
             <Picker
               selectedValue={country.code}
@@ -117,6 +120,7 @@ export default function LoginScreen({ navigation }) {
           </View>
 
           {/* PHONE INPUT */}
+          <Text style={styles.label}>Phone Number</Text>
           <View style={styles.inputContainer}>
             <Text style={styles.prefix}>{country.code}</Text>
             <TextInput
@@ -126,102 +130,113 @@ export default function LoginScreen({ navigation }) {
               value={phone}
               onChangeText={(text) => setPhone(text.replace(/[^0-9]/g, ""))}
               style={styles.input}
+              placeholderTextColor={COLORS.textMuted}
             />
           </View>
 
-          {/* BUTTON */}
-          <TouchableOpacity
-            style={[
-              styles.button,
-              (phone.length !== country.digits || loading) &&
-                styles.disabledBtn,
-            ]}
+          <Button
+            title={loading ? "Signing In..." : "Sign In"}
             onPress={handleLogin}
             disabled={phone.length !== country.digits || loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading ? "Signing In..." : "Sign In"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            style={styles.cta}
+          />
+
+          <Text style={styles.helperText}>
+            By signing in, you agree to the app usage policy.
+          </Text>
+        </Card>
+      </AppScreen>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
+  screenContent: {
     justifyContent: "center",
+    paddingTop: SPACING.xl,
+    paddingBottom: SPACING.xl,
+  },
+  brandBlock: {
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
-    padding: 20,
+    marginBottom: SPACING.lg,
+  },
+  logoWrapper: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: SPACING.sm,
   },
   appName: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#2F80ED",
-    marginVertical: 20,
+    ...TYPOGRAPHY.h1,
+    color: COLORS.primary,
+  },
+  tagline: {
+    ...TYPOGRAPHY.muted,
+    textAlign: "center",
+    marginTop: 6,
   },
   card: {
-    width: "90%",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 20,
-    elevation: 5,
+    width: "100%",
+    borderRadius: RADIUS.xl,
+    ...SHADOW.card,
+  },
+  cardTablet: {
+    padding: SPACING.xl,
   },
   loginText: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 10,
+    ...TYPOGRAPHY.h2,
+    marginBottom: 6,
   },
-  underline: {
-    height: 2,
-    width: 50,
-    backgroundColor: "#2F80ED",
-    marginBottom: 20,
+  loginSubtext: {
+    ...TYPOGRAPHY.caption,
+    marginBottom: SPACING.md,
   },
   subText: {
-    fontSize: 14,
-    color: "#777",
-    marginBottom: 15,
+    ...TYPOGRAPHY.body,
+    color: COLORS.textMuted,
+    marginBottom: SPACING.md,
+  },
+  label: {
+    ...TYPOGRAPHY.caption,
+    marginBottom: 6,
   },
   dropdown: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
-    marginBottom: 15,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.md,
+    backgroundColor: "#F9FAFB",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 5,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
     paddingHorizontal: 10,
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
+    backgroundColor: "#F9FAFB",
+    minHeight: 46,
   },
   prefix: {
     fontSize: 16,
     marginRight: 10,
-    color: "#555",
+    color: COLORS.textMuted,
+    fontWeight: "700",
   },
   input: {
     flex: 1,
     fontSize: 16,
+    color: COLORS.text,
   },
-  button: {
-    backgroundColor: "#2F80ED",
-    padding: 15,
-    borderRadius: 5,
-    alignItems: "center",
-  },
-  disabledBtn: {
-    backgroundColor: "#a5c4f1",
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+  cta: { marginTop: 2 },
+  helperText: {
+    marginTop: 12,
+    fontSize: 11,
+    color: COLORS.textMuted,
+    textAlign: "center",
   },
 });

@@ -13,6 +13,8 @@ import {
   Easing,
   SafeAreaView,
 } from "react-native";
+import { COLORS, SHADOW } from "../../utils/theme";
+import { useResponsiveLayout } from "../../utils/responsive";
 
 // --- 1. THE EXPANDED DATASET ---
 const TEACHER_DATA = {
@@ -328,6 +330,7 @@ const MessageBubble = ({ text, isUser, timestamp }) => {
 };
 
 export default function AiTeacherChat() {
+  const { gutter, contentMaxWidth } = useResponsiveLayout();
   const [messages, setMessages] = useState([
     {
       id: "1",
@@ -393,17 +396,18 @@ export default function AiTeacherChat() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            {/* Make sure this image exists in your assets folder */}
-            <Image
-              source={require("../../../assets/teacher.png")}
-              style={styles.avatar}
-            />
-            <View style={styles.onlineIndicator} />
-          </View>
-          <View>
-            <Text style={styles.headerTitle}>AI Professor</Text>
-            <Text style={styles.headerSubtitle}>Always here to help</Text>
+          <View style={[styles.headerInner, { paddingHorizontal: gutter, maxWidth: contentMaxWidth }]}>
+            <View style={styles.avatarContainer}>
+              <Image
+                source={require("../../../assets/teacher.png")}
+                style={styles.avatar}
+              />
+              <View style={styles.onlineIndicator} />
+            </View>
+            <View>
+              <Text style={styles.headerTitle}>AI Professor</Text>
+              <Text style={styles.headerSubtitle}>Always here to help</Text>
+            </View>
           </View>
         </View>
 
@@ -419,7 +423,10 @@ export default function AiTeacherChat() {
               timestamp={item.time}
             />
           )}
-          contentContainerStyle={styles.chatList}
+          contentContainerStyle={[
+            styles.chatList,
+            { paddingHorizontal: gutter, maxWidth: contentMaxWidth, alignSelf: "center", width: "100%" },
+          ]}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={
             <View style={{ marginBottom: 10 }}>
@@ -436,24 +443,26 @@ export default function AiTeacherChat() {
 
         {/* Input Area */}
         <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Ask anything..."
-            placeholderTextColor="#999"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline={true}
-          />
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              { backgroundColor: inputText.trim() ? "#6200EA" : "#B39DDB" },
-            ]}
-            onPress={sendMessage}
-            disabled={!inputText.trim()}
-          >
-            <Text style={styles.sendIcon}>➤</Text>
-          </TouchableOpacity>
+          <View style={[styles.inputInner, { paddingHorizontal: gutter, maxWidth: contentMaxWidth }]}>
+            <TextInput
+              style={styles.input}
+              placeholder="Ask anything..."
+              placeholderTextColor="#999"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline={true}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                { backgroundColor: inputText.trim() ? COLORS.primary : "#C7D2FE" },
+              ]}
+              onPress={sendMessage}
+              disabled={!inputText.trim()}
+            >
+              <Text style={styles.sendIcon}>➤</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -463,23 +472,23 @@ export default function AiTeacherChat() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F5F7FA",
+    backgroundColor: COLORS.background,
   },
 
   // Header
   header: {
-    flexDirection: "row",
     alignItems: "center",
-    padding: 15,
-    backgroundColor: "#fff",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    paddingVertical: 12,
+    backgroundColor: COLORS.surface,
+    ...SHADOW.soft,
     zIndex: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: COLORS.border,
+  },
+  headerInner: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
   },
   avatarContainer: {
     position: "relative",
@@ -505,38 +514,51 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
+    color: COLORS.text,
   },
   headerSubtitle: {
     fontSize: 12,
-    color: "#4CAF50",
+    color: COLORS.success,
     fontWeight: "600",
   },
 
   // Chat List
   chatList: {
-    padding: 20,
+    paddingTop: 16,
     paddingBottom: 10,
     flexGrow: 1,
   },
+    inputContainer: {
+      backgroundColor: COLORS.surface,
+      borderTopWidth: 1,
+      borderTopColor: COLORS.border,
+      paddingVertical: 10,
+      alignItems: "center",
+    },
+    inputInner: {
+      width: "100%",
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: 10,
+    },
   messageBubble: {
     maxWidth: "80%",
     padding: 12,
     borderRadius: 16,
     marginBottom: 12,
-    elevation: 1,
+    ...SHADOW.soft,
   },
   userBubble: {
     alignSelf: "flex-end",
-    backgroundColor: "#6200EA",
+    backgroundColor: COLORS.primary,
     borderBottomRightRadius: 4,
   },
   aiBubble: {
     alignSelf: "flex-start",
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: "#E0E0E0",
+    borderColor: COLORS.border,
   },
   messageText: {
     fontSize: 15,
@@ -546,7 +568,7 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   aiText: {
-    color: "#333",
+    color: COLORS.text,
   },
   timestamp: {
     fontSize: 10,
@@ -557,34 +579,25 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.7)",
   },
   aiTimestamp: {
-    color: "#999",
+    color: COLORS.textMuted,
   },
   typingText: {
     marginLeft: 10,
-    color: "#888",
+    color: COLORS.textMuted,
     fontStyle: "italic",
     marginTop: 5,
   },
 
   // Input Area
-  inputContainer: {
-    flexDirection: "row",
-    padding: 10,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#E0E0E0",
-    paddingBottom: 10,
-  },
   input: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F3F4F6",
     borderRadius: 25,
     paddingHorizontal: 20,
     paddingVertical: 10,
     fontSize: 16,
-    marginRight: 10,
-    color: "#333",
+    marginRight: 0,
+    color: COLORS.text,
     maxHeight: 100,
   },
   sendButton: {

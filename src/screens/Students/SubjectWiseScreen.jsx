@@ -14,6 +14,8 @@ import {
 } from "react-native";
 // 1. Import Navigation Hook
 import { useNavigation } from "@react-navigation/native";
+import { COLORS, SHADOW } from "../../utils/theme";
+import { useResponsiveLayout } from "../../utils/responsive";
 
 // Enable LayoutAnimation for Android
 if (
@@ -86,7 +88,7 @@ const SUBJECT_DATA = [
 // --- COMPONENTS ---
 
 // 1. The Expandable Card Component
-const SubjectCard = ({ item, index }) => {
+const SubjectCard = ({ item, index, containerStyle }) => {
   const [expanded, setExpanded] = useState(false);
   // 2. Initialize Navigation
   const navigation = useNavigation();
@@ -124,6 +126,7 @@ const SubjectCard = ({ item, index }) => {
     <Animated.View
       style={[
         styles.cardContainer,
+        containerStyle,
         {
           opacity: opacityAnim,
           transform: [{ translateY: slideAnim }],
@@ -212,22 +215,28 @@ const SubjectCard = ({ item, index }) => {
 
 // 2. Main Screen
 export default function SubjectWiseScreen() {
+  const { gutter, contentMaxWidth } = useResponsiveLayout();
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#4A90E2" />
 
       <View style={styles.container}>
-        <View style={styles.headerBackground}>
+        <View style={[styles.headerBackground, { paddingHorizontal: gutter }]}>
           <Text style={styles.headerTitle}>Attendance</Text>
           <Text style={styles.headerSubtitle}>Subject-wise Breakdown</Text>
         </View>
 
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: gutter, alignItems: "center" }]}
           showsVerticalScrollIndicator={false}
         >
           {SUBJECT_DATA.map((item, index) => (
-            <SubjectCard key={item.id} item={item} index={index} />
+            <SubjectCard
+              key={item.id}
+              item={item}
+              index={index}
+              containerStyle={{ width: "100%", maxWidth: contentMaxWidth }}
+            />
           ))}
 
           <View style={{ height: 50 }} />
@@ -241,14 +250,14 @@ export default function SubjectWiseScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#4A90E2",
+    backgroundColor: COLORS.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: "#F4F7FC",
+    backgroundColor: COLORS.background,
   },
   headerBackground: {
-    backgroundColor: "#4A90E2",
+    backgroundColor: COLORS.primary,
     paddingTop: Platform.OS === "android" ? 40 : 20,
     paddingBottom: 40,
     paddingHorizontal: 20,
@@ -267,8 +276,8 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   scrollContent: {
-    padding: 20,
     paddingTop: 10,
+    paddingBottom: 30,
   },
 
   // Card Styles
@@ -289,10 +298,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
   },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   iconBox: {
     width: 45,
     height: 45,
@@ -300,6 +305,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
+    backgroundColor: COLORS.surface,
+    ...SHADOW.soft,
   },
   iconText: {
     fontSize: 20,
@@ -332,7 +339,7 @@ const styles = StyleSheet.create({
   // Progress Bar
   progressBarBg: {
     height: 4,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: COLORS.border,
     width: "100%",
   },
   progressBarFill: {

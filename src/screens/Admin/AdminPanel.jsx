@@ -10,7 +10,6 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
-  Dimensions,
   Modal,
   TextInput,
   KeyboardAvoidingView,
@@ -23,6 +22,8 @@ import {
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
 import { FontAwesome5 } from "@expo/vector-icons";
+import { clearSession } from "../../utils/session";
+import { useResponsiveLayout } from "../../utils/responsive";
 
 // --- Enable Layout Animations ---
 if (
@@ -467,6 +468,7 @@ const FormModal = ({ visible, onClose, onSave, initialData, type }) => {
 // --- Main Component ---
 const AdminPanelContent = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { gutter, contentMaxWidth } = useResponsiveLayout();
 
   // -- State --
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -560,6 +562,20 @@ const AdminPanelContent = ({ navigation }) => {
       }),
     ]).start();
     setSidebarOpen(!isSidebarOpen);
+  };
+
+  const handleLogout = () => {
+    Alert.alert("Log Out", "Are you sure you want to log out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log Out",
+        style: "destructive",
+        onPress: async () => {
+          await clearSession();
+          navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+        },
+      },
+    ]);
   };
 
   const navigateToTab = (tabName) => {
@@ -1005,7 +1021,7 @@ const AdminPanelContent = ({ navigation }) => {
         ]}
       >
         <View style={styles.headerContainer}>
-          <View style={styles.header}>
+          <View style={[styles.header, { paddingHorizontal: gutter }]}>
             <TouchableOpacity
               onPress={toggleSidebar}
               style={styles.menuTrigger}
@@ -1017,28 +1033,47 @@ const AdminPanelContent = ({ navigation }) => {
               />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Admin Panel</Text>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>A</Text>
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={handleLogout}
+                activeOpacity={0.8}
+              >
+                <FontAwesome5 name="sign-out-alt" size={14} color="#fff" />
+              </TouchableOpacity>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>A</Text>
+              </View>
             </View>
           </View>
         </View>
 
-        <View style={styles.mainContent}>
-          {activeTab === "dashboard" && <DashboardView />}
-          {activeTab === "teachers" && (
-            <GenericListView
-              data={teachers}
-              type="Teacher"
-              groupKey="subject"
-            />
-          )}
-          {activeTab === "students" && (
-            <GenericListView data={students} type="Student" groupKey="grade" />
-          )}
-          {activeTab === "classes" && (
-            <GenericListView data={classes} type="Class" groupKey="location" />
-          )}
-          {/* Internal Timetable View is removed from here since we navigate away now */}
+        <View style={[styles.mainContent, { paddingHorizontal: gutter, alignItems: "center" }]}>
+          <View style={{ width: "100%", maxWidth: contentMaxWidth }}>
+            {activeTab === "dashboard" && <DashboardView />}
+            {activeTab === "teachers" && (
+              <GenericListView
+                data={teachers}
+                type="Teacher"
+                groupKey="subject"
+              />
+            )}
+            {activeTab === "students" && (
+              <GenericListView
+                data={students}
+                type="Student"
+                groupKey="grade"
+              />
+            )}
+            {activeTab === "classes" && (
+              <GenericListView
+                data={classes}
+                type="Class"
+                groupKey="location"
+              />
+            )}
+            {/* Internal Timetable View is removed from here since we navigate away now */}
+          </View>
         </View>
       </Animated.View>
 
@@ -1115,6 +1150,15 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   headerTitle: { fontSize: 18, fontWeight: "800", color: COLORS.textDark },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 10 },
+  logoutButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: COLORS.danger,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -1162,7 +1206,7 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
     fontWeight: "600",
   },
-  mainContent: { flex: 1, paddingHorizontal: 20 },
+  mainContent: { flex: 1 },
   sectionTitle: { fontSize: 24, fontWeight: "800", color: COLORS.textDark },
   scrollContent: { paddingBottom: 100, paddingTop: 10 },
   statsGrid: {

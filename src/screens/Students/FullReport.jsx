@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Platform,
-  Dimensions,
   StatusBar
 } from "react-native";
-
-const { width } = Dimensions.get("window");
+import { COLORS, SHADOW } from "../../utils/theme";
+import { useResponsiveLayout } from "../../utils/responsive";
 
 export default function FullReport({ route, navigation }) {
+  const { gutter, contentMaxWidth } = useResponsiveLayout();
   // Get the data passed from the previous screen
   const { subjectData } = route.params;
 
@@ -27,7 +27,7 @@ export default function FullReport({ route, navigation }) {
       <View style={styles.container}>
         
         {/* Navigation Header */}
-        <View style={styles.reportHeader}>
+        <View style={[styles.reportHeader, { paddingHorizontal: gutter }]}>
           <TouchableOpacity 
             onPress={() => navigation.goBack()} 
             style={styles.backButton}
@@ -40,10 +40,13 @@ export default function FullReport({ route, navigation }) {
           <View style={{ width: 50 }} />
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 50, paddingHorizontal: gutter, alignItems: "center" }}
+        >
           
           {/* 1. Big Circular Summary Card */}
-          <View style={styles.summaryCard}>
+          <View style={[styles.summaryCard, { maxWidth: contentMaxWidth }]}>
             <Text style={styles.summarySubject}>{subjectData.subject}</Text>
             <Text style={styles.summaryCode}>{subjectData.code}</Text>
             
@@ -81,7 +84,7 @@ export default function FullReport({ route, navigation }) {
           </View>
 
           {/* 2. Detailed History List */}
-          <View style={styles.logContainer}>
+          <View style={[styles.logContainer, { maxWidth: contentMaxWidth }]}>
             <Text style={styles.sectionHeader}>Attendance Log</Text>
             
             {subjectData.history.map((log, index) => (
@@ -123,16 +126,16 @@ export default function FullReport({ route, navigation }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#4A90E2",
+    backgroundColor: COLORS.primary,
   },
   container: {
     flex: 1,
-    backgroundColor: "#F4F7FC",
+    backgroundColor: COLORS.background,
   },
   
   // Header Styles
   reportHeader: {
-    backgroundColor: "#4A90E2",
+    backgroundColor: COLORS.primary,
     paddingTop: Platform.OS === "android" ? 40 : 10,
     paddingBottom: 20,
     paddingHorizontal: 20,
@@ -143,7 +146,7 @@ const styles = StyleSheet.create({
   backButton: {
     paddingVertical: 5,
     paddingHorizontal: 10,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: "rgba(255,255,255,0.2)",
     borderRadius: 8,
   },
   backText: {
@@ -159,17 +162,15 @@ const styles = StyleSheet.create({
 
   // Summary Card Styles
   summaryCard: {
-    backgroundColor: "#fff",
-    margin: 20,
+    backgroundColor: COLORS.surface,
+    width: "100%",
+    marginTop: 18,
     padding: 25,
     borderRadius: 20,
     alignItems: "center",
-    // Shadow
-    elevation: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    ...SHADOW.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   summarySubject: {
     fontSize: 22,
@@ -241,7 +242,8 @@ const styles = StyleSheet.create({
   
   // Log List Styles
   logContainer: {
-    paddingHorizontal: 20,
+    width: "100%",
+    marginTop: 16,
   },
   sectionHeader: {
     fontSize: 18,
@@ -253,11 +255,11 @@ const styles = StyleSheet.create({
   logRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     padding: 15,
     borderRadius: 12,
     marginBottom: 10,
-    elevation: 2,
+    ...SHADOW.soft,
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 5,

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   Animated,
   TouchableOpacity,
   ScrollView,
-  Dimensions,
   StatusBar,
   SafeAreaView,
   Platform,
@@ -14,14 +13,19 @@ import {
 } from "react-native";
 import LottieView from "lottie-react-native";
 import { useNavigation } from "@react-navigation/native"; // Added Navigation Hook
-
-const { width } = Dimensions.get("window");
+import { clearSession, getSession } from "../../utils/session";
+import { COLORS, RADIUS, SHADOW, SPACING, TYPOGRAPHY } from "../../utils/theme";
+import { fetchUserById } from "../../utils/userApi";
+import { useResponsiveLayout } from "../../utils/responsive";
 
 export default function ProfileScreen() {
   const navigation = useNavigation(); // Hook for navigation
+  const { gutter, contentMaxWidth } = useResponsiveLayout();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.5)).current;
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Animated.parallel([
@@ -42,6 +46,24 @@ export default function ProfileScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+
+    const loadUser = async () => {
+      try {
+        const session = await getSession();
+        if (!session?.id) {
+          setLoading(false);
+          return;
+        }
+        const userData = await fetchUserById(session.id);
+        setUser(userData);
+      } catch (error) {
+        console.error("Profile load error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUser();
   }, []);
 
   // --- LOGOUT HANDLER ---
@@ -54,7 +76,8 @@ export default function ProfileScreen() {
         { 
           text: "Logout", 
           style: "destructive", 
-          onPress: () => {
+          onPress: async () => {
+            await clearSession();
             // Reset navigation stack to prevent going back
             navigation.reset({
               index: 0,
@@ -83,19 +106,22 @@ export default function ProfileScreen() {
       <StatusBar barStyle="light-content" backgroundColor="#4A90E2" />
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: gutter }]}
         showsVerticalScrollIndicator={true}
         bounces={true}
         overScrollMode="always"
       >
         <View style={styles.headerBackground}>
           <Text style={styles.headerTitle}>My Profile</Text>
-          <Text style={styles.headerSubtitle}>Student Portal</Text>
+          <Text style={styles.headerSubtitle}>
+            {user?.role === "teacher" ? "Teacher Portal" : "Student Portal"}
+          </Text>
         </View>
 
         <Animated.View
           style={[
             styles.card,
+            { maxWidth: contentMaxWidth },
             { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
           ]}
         >
@@ -119,17 +145,21 @@ export default function ProfileScreen() {
             </View>
           </Animated.View>
 
-          <Text style={styles.name}>Saurabh</Text>
-          <Text style={styles.role}>B.Sc. IT Student</Text>
+          <Text style={styles.name}>{user?.name || "User"}</Text>
+          <Text style={styles.role}>
+            {user?.role === "teacher"
+              ? `${user?.department || "Faculty"} Teacher`
+              : `${user?.className || "Student"}`}
+          </Text>
 
           <View style={styles.statsContainer}>
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>92%</Text>
+              <Text style={styles.statNumber}>{loading ? "..." : "--"}</Text>
               <Text style={styles.statLabel}>Attendance</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statBox}>
-              <Text style={styles.statNumber}>8.5</Text>
+              <Text style={styles.statNumber}>{loading ? "..." : "--"}</Text>
               <Text style={styles.statLabel}>CGPA</Text>
             </View>
           </View>
@@ -137,12 +167,36 @@ export default function ProfileScreen() {
           <View style={styles.divider} />
 
           <View style={styles.detailsSection}>
-            <DetailRow icon="🆔" label="Roll Number" value="21" />
-            <DetailRow icon="🎓" label="Class" value="TY BSc IT" />
-            <DetailRow icon="📧" label="Email" value="saurabh@college.edu" />
-            <DetailRow icon="📍" label="Location" value="Mumbai, India" />
-            <DetailRow icon="📞" label="Phone" value="+91 98765 43210" />
-            <DetailRow icon="📅" label="DOB" value="12 Aug 2003" />
+            {user?.role === "student" && (
+              <DetailRow
+                icon="🆔"
+                label="Roll Number"
+                value={user?.rollNo || "--"}
+              />
+            )}
+            {user?.role === "student" && (
+              <DetailRow
+                icon="🎓"
+                label="Class"
+                value={user?.className || "--"}
+              />
+            )}
+            {user?.role === "student" && (
+              <DetailRow
+                icon="📅"
+                label="Semester"
+                value={user?.semester || "--"}
+              />
+            )}
+            {user?.role === "teacher" && (
+              <DetailRow
+                icon="🎓"
+                label="Department"
+                value={user?.department || "--"}
+              />
+            )}
+            <DetailRow icon="📧" label="Email" value={user?.email || "--"} />
+            <DetailRow icon="📞" label="Phone" value={user?.phone || "--"} />
           </View>
 
           <TouchableOpacity activeOpacity={0.8} style={styles.button}>
@@ -167,11 +221,15 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#4A90E2" },
-  container: { flex: 1, backgroundColor: "#F4F7FC" },
-  scrollContent: { alignItems: "center", paddingBottom: 150, flexGrow: 1 },
+  safeArea: { flex: 1, backgroundColor: COLORS.primary },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  scrollContent: {
+    alignItems: "center",
+    paddingBottom: 120,
+    flexGrow: 1,
+  },
   headerBackground: {
-    backgroundColor: "#4A90E2",
+    backgroundColor: COLORS.primary,
     width: "100%",
     height: 280,
     alignItems: "center",
@@ -179,7 +237,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
   },
-  headerTitle: { fontSize: 24, fontWeight: "bold", color: "#fff" },
+  headerTitle: { ...TYPOGRAPHY.h2, color: "#fff" },
   headerSubtitle: {
     fontSize: 14,
     color: "rgba(255,255,255,0.8)",
@@ -189,19 +247,17 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: "#fff",
-    width: width * 0.9,
+    backgroundColor: COLORS.surface,
+    width: "100%",
     marginTop: -90,
-    borderRadius: 25,
-    paddingVertical: 30,
-    paddingHorizontal: 20,
+    borderRadius: RADIUS.xl,
+    paddingVertical: SPACING.xl,
+    paddingHorizontal: SPACING.lg,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 15,
+    ...SHADOW.card,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   avatarContainer: {
     marginTop: -70,
@@ -240,8 +296,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: "#2ECC71",
   },
-  name: { fontSize: 26, fontWeight: "800", color: "#333", marginBottom: 5 },
-  role: { fontSize: 16, color: "#777", fontWeight: "600", marginBottom: 20 },
+  name: { fontSize: 26, fontWeight: "800", color: COLORS.text, marginBottom: 5 },
+  role: { fontSize: 16, color: COLORS.textMuted, fontWeight: "600", marginBottom: 20 },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -249,31 +305,31 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   statBox: { alignItems: "center", flex: 1 },
-  statNumber: { fontSize: 22, fontWeight: "bold", color: "#4A90E2" },
-  statLabel: { fontSize: 12, color: "#999", fontWeight: "600" },
-  statDivider: { width: 1, height: "100%", backgroundColor: "#E0E0E0" },
+  statNumber: { fontSize: 22, fontWeight: "bold", color: COLORS.primary },
+  statLabel: { fontSize: 12, color: COLORS.textMuted, fontWeight: "600" },
+  statDivider: { width: 1, height: "100%", backgroundColor: COLORS.border },
   divider: {
     width: "100%",
     height: 1,
-    backgroundColor: "#F0F0F0",
+    backgroundColor: COLORS.border,
     marginBottom: 20,
   },
   detailsSection: { width: "100%" },
   detailRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FAFAFA",
+    backgroundColor: "#F9FAFB",
     padding: 15,
     marginBottom: 15,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: "#F5F5F5",
+    borderColor: COLORS.border,
   },
   iconContainer: {
     width: 45,
     height: 45,
     borderRadius: 22.5,
-    backgroundColor: "#EEF4FF",
+    backgroundColor: "#EEF2FF",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 15,
@@ -282,22 +338,22 @@ const styles = StyleSheet.create({
   detailTextContainer: { flex: 1 },
   detailLabel: {
     fontSize: 11,
-    color: "#AAA",
+    color: COLORS.textMuted,
     fontWeight: "700",
     textTransform: "uppercase",
     marginBottom: 2,
   },
-  detailValue: { fontSize: 15, color: "#333", fontWeight: "600" },
+  detailValue: { fontSize: 15, color: COLORS.text, fontWeight: "600" },
   button: {
     marginTop: 10,
-    backgroundColor: "#4A90E2",
+    backgroundColor: COLORS.primary,
     paddingVertical: 16,
     width: "100%",
     borderRadius: 15,
     alignItems: "center",
-    shadowColor: "#4A90E2",
+    shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 10,
   },
@@ -310,19 +366,19 @@ const styles = StyleSheet.create({
   // Logout Button Styles
   logoutButton: {
     marginTop: 15,
-    backgroundColor: "#FFEBEE", // Light Red Background
+    backgroundColor: "#FEE2E2",
     paddingVertical: 16,
     width: "100%",
     borderRadius: 15,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#FFCDD2",
+    borderColor: "#FCA5A5",
   },
   logoutButtonText: {
-    color: "#FF5252", // Red Text
+    color: COLORS.danger,
     fontSize: 16,
     fontWeight: "bold",
     letterSpacing: 0.5,
   },
-  footerText: { marginTop: 10, color: "#B0B0B0", fontSize: 12 },
+  footerText: { marginTop: 10, color: COLORS.textMuted, fontSize: 12 },
 });

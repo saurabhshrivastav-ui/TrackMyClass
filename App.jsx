@@ -1,6 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { ActivityIndicator, View } from "react-native";
+import { getSession } from "./src/utils/session";
 
 // --- AUTH IMPORTS ---
 import LoginScreen from "./src/screens/LoginScreen";
@@ -25,9 +27,41 @@ import TeacherProfileScreen from "./src/screens/Teachers/TeachersProfile";
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+  const [initialRoute, setInitialRoute] = useState("Login");
+  const [isBooting, setIsBooting] = useState(true);
+
+  useEffect(() => {
+    const bootstrapSession = async () => {
+      try {
+        const session = await getSession();
+        if (session?.role === "admin") setInitialRoute("AdminPanel");
+        else if (session?.role === "teacher") setInitialRoute("TeacherDashboard");
+        else if (session?.role === "student") setInitialRoute("Main");
+        else setInitialRoute("Login");
+      } catch (error) {
+        setInitialRoute("Login");
+      } finally {
+        setIsBooting(false);
+      }
+    };
+
+    bootstrapSession();
+  }, []);
+
+  if (isBooting) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color="#2F80ED" />
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{ headerShown: false }}
+        initialRouteName={initialRoute}
+      >
         
         {/* ==============================
             1. AUTHENTICATION

@@ -9,10 +9,10 @@ import {
   LayoutAnimation,
   Platform,
   UIManager,
-  Dimensions,
 } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { FontAwesome5 } from "@expo/vector-icons";
+import { useResponsiveLayout } from "../utils/responsive";
 
 // --- Enable Animations ---
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -30,6 +30,7 @@ const COLORS = {
   success: "#10b981",
   warning: "#f59e0b",
   card: "#ffffff",
+  inputBg: "#e5e7eb",
 };
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -51,9 +52,13 @@ const SCHEDULE_DATA = {
 
 // --- Components ---
 
-const DaySelector = ({ activeDay, onSelect }) => (
+const DaySelector = ({ activeDay, onSelect, gutter }) => (
   <View style={styles.daySelectorContainer}>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dayScroll}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={[styles.dayScroll, { paddingHorizontal: gutter }]}
+    >
       {DAYS.map((day) => {
         const isActive = activeDay === day;
         return (
@@ -137,6 +142,7 @@ const TimelineCard = ({ data, isLast }) => {
 
 const TimeTableView = ({ navigation }) => {
   const insets = useSafeAreaInsets();
+  const { gutter, contentMaxWidth } = useResponsiveLayout();
   const [selectedDay, setSelectedDay] = useState("Mon");
   const [schedule, setSchedule] = useState(SCHEDULE_DATA["Mon"]);
 
@@ -153,7 +159,7 @@ const TimeTableView = ({ navigation }) => {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
       {/* Header */}
-      <View style={[styles.header, { marginTop: insets.top }]}>
+      <View style={[styles.header, { marginTop: insets.top, paddingHorizontal: gutter }]}>
         <View>
             <Text style={styles.headerDate}>{todayDate}</Text>
             <Text style={styles.headerTitle}>My Schedule</Text>
@@ -167,12 +173,12 @@ const TimeTableView = ({ navigation }) => {
       <View style={styles.contentBody}>
         
         {/* Day Selector */}
-        <DaySelector activeDay={selectedDay} onSelect={handleDayChange} />
+        <DaySelector activeDay={selectedDay} onSelect={handleDayChange} gutter={gutter} />
 
         {/* Timeline List */}
         <ScrollView 
             style={styles.scrollList} 
-            contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingHorizontal: gutter, maxWidth: contentMaxWidth, alignSelf: "center" }]}
             showsVerticalScrollIndicator={false}
         >
             {schedule.length > 0 ? (
@@ -246,7 +252,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   dayScroll: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 0,
     gap: 15,
   },
   dayTab: {
@@ -281,7 +287,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 25,
+    paddingTop: 22,
     paddingBottom: 50,
   },
   timelineRow: {

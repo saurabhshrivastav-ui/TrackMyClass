@@ -11,65 +11,10 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { FontAwesome5 } from "@expo/vector-icons";
-import * as SecureStore from "expo-secure-store";
-
-// Mock Data
-const subjectsData = [
-  {
-    id: 1,
-    name: "Data Structures & Algorithms",
-    attended: 42,
-    total: 48,
-    percent: 88,
-    color: "#4CAF50",
-    absent: 6,
-  },
-  {
-    id: 2,
-    name: "Database Management Systems",
-    attended: 38,
-    total: 45,
-    percent: 84,
-    color: "#4CAF50",
-    absent: 7,
-  },
-  {
-    id: 3,
-    name: "Operating Systems",
-    attended: 35,
-    total: 50,
-    percent: 70,
-    color: "#FFA726",
-    absent: 15,
-  },
-  {
-    id: 4,
-    name: "Computer Networks",
-    attended: 44,
-    total: 47,
-    percent: 94,
-    color: "#9C27B0",
-    absent: 3,
-  },
-  {
-    id: 5,
-    name: "Software Engineering",
-    attended: 30,
-    total: 46,
-    percent: 65,
-    color: "#F44336",
-    absent: 16,
-  },
-  {
-    id: 6,
-    name: "Web Technologies",
-    attended: 40,
-    total: 44,
-    percent: 91,
-    color: "#E91E63",
-    absent: 4,
-  },
-];
+import { getSession } from "../../utils/session";
+import { COLORS, RADIUS, SHADOW, SPACING, TYPOGRAPHY } from "../../utils/theme";
+import { fetchStudentOverview } from "../../utils/attendanceApi";
+import { useResponsiveLayout } from "../../utils/responsive";
 
 const AnimatedProgressBar = ({ percent, color }) => {
   const widthAnim = useRef(new Animated.Value(0)).current;
@@ -103,11 +48,16 @@ const AnimatedProgressBar = ({ percent, color }) => {
 
 export default function OverallScreen() {
   const navigation = useNavigation();
+  const { gutter, contentMaxWidth, isTablet, isDesktop } = useResponsiveLayout();
   const [userData, setUserData] = useState({
     name: "Saurabh Shrivastav",
     id: "CS2024001",
     semester: "6th Semester",
   });
+  const [subjects, setSubjects] = useState([]);
+  const [stats, setStats] = useState({ totalClasses: 0, attended: 0, overallPercent: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
@@ -116,12 +66,19 @@ export default function OverallScreen() {
     // SECURE SESSION LOADING
     const loadSession = async () => {
       try {
-        const savedUser = await SecureStore.getItemAsync("user_session");
-        if (savedUser) {
-          setUserData(JSON.parse(savedUser));
-        }
+        const savedUser = await getSession();
+        if (savedUser) setUserData(savedUser);
+
+        const studentId = savedUser?.id || userData.id;
+        const overview = await fetchStudentOverview(studentId);
+        setUserData(overview.student);
+        setSubjects(overview.subjects || []);
+        setStats(overview.stats || { totalClasses: 0, attended: 0, overallPercent: 0 });
       } catch (error) {
+        setError(error.message || "Failed to load data");
         console.error("Could not load secure session:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -146,11 +103,18 @@ export default function OverallScreen() {
   return (
     <View style={styles.mainContainer}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: gutter }]}
         showsVerticalScrollIndicator={false}
       >
         <Animated.View
-          style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+          style={[
+            styles.page,
+            {
+              maxWidth: contentMaxWidth,
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
         >
           {/* Header Section */}
           <View style={styles.header}>
@@ -201,16 +165,20 @@ export default function OverallScreen() {
           <View style={styles.chartContainer}>
             <View style={styles.circleOuter}>
               <View style={styles.circleInner}>
-                <Text style={styles.overallPercent}>82%</Text>
+                <Text style={styles.overallPercent}>{stats.overallPercent}%</Text>
                 <Text style={styles.overallLabel}>Overall</Text>
               </View>
             </View>
             <Text style={styles.academicYear}>Academic Year 2024-25</Text>
 
             <View style={styles.statusPill}>
-              <Text style={styles.statusTitle}>Status: Excellent</Text>
+              <Text style={styles.statusTitle}>
+                Status: {stats.overallPercent >= 75 ? "Excellent" : "Low"}
+              </Text>
               <Text style={styles.statusSubtitle}>
-                Your attendance is above the required threshold
+                {stats.overallPercent >= 75
+                  ? "Your attendance is above the required threshold"
+                  : "Your attendance is below the required threshold"}
               </Text>
             </View>
           </View>
@@ -220,12 +188,12 @@ export default function OverallScreen() {
             <View style={styles.statCard}>
               <Text style={styles.statIcon}>📅</Text>
               <Text style={styles.statLabel}>Total Classes</Text>
-              <Text style={styles.statCount}>280</Text>
+              <Text style={styles.statCount}>{stats.totalClasses}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statIcon}>📈</Text>
               <Text style={styles.statLabel}>Classes Attended</Text>
-              <Text style={styles.statCount}>229</Text>
+              <Text style={styles.statCount}>{stats.attended}</Text>
             </View>
           </View>
 
@@ -254,31 +222,43 @@ export default function OverallScreen() {
           {/* Subject Wise List */}
           <Text style={styles.sectionTitle}>Subject-wise Attendance</Text>
 
-          {subjectsData.map((subject) => (
-            <View key={subject.id} style={styles.subjectCard}>
-              <View style={styles.subjectHeader}>
-                <View>
-                  <Text style={styles.subjectName}>{subject.name}</Text>
-                  <Text style={styles.subjectFraction}>
-                    {subject.attended} / {subject.total} classes
+          {loading && <Text style={styles.loadingText}>Loading attendance...</Text>}
+          {error && <Text style={styles.errorText}>{error}</Text>}
+
+          {!loading && !error && subjects.length === 0 && (
+            <Text style={styles.emptyText}>No attendance data available.</Text>
+          )}
+
+          <View style={styles.subjectGrid}>
+            {subjects.map((subject, index) => (
+              <View
+                key={`${subject.name}-${index}`}
+                style={[
+                  styles.subjectCard,
+                  (isTablet || isDesktop) && styles.subjectCardWide,
+                ]}
+              >
+                <View style={styles.subjectHeader}>
+                  <View style={styles.subjectHeaderLeft}>
+                    <Text style={styles.subjectName} numberOfLines={1}>
+                      {subject.name}
+                    </Text>
+                    <Text style={styles.subjectFraction}>
+                      {subject.attended} / {subject.total} classes
+                    </Text>
+                  </View>
+                  <Text style={[styles.subjectPercent, { color: subject.color }]}>
+                    {subject.percent}%
                   </Text>
                 </View>
-                <Text style={[styles.subjectPercent, { color: subject.color }]}>
-                  {subject.percent}%
-                </Text>
+                <AnimatedProgressBar percent={subject.percent} color={subject.color} />
+                <View style={styles.cardFooter}>
+                  <Text style={styles.presentText}>✔ {subject.attended} Present</Text>
+                  <Text style={styles.absentText}>✖ {subject.absent} Absent</Text>
+                </View>
               </View>
-              <AnimatedProgressBar
-                percent={subject.percent}
-                color={subject.color}
-              />
-              <View style={styles.cardFooter}>
-                <Text style={styles.presentText}>
-                  ✔ {subject.attended} Present
-                </Text>
-                <Text style={styles.absentText}>✖ {subject.absent} Absent</Text>
-              </View>
-            </View>
-          ))}
+            ))}
+          </View>
 
           {/* Disclaimer Note */}
           <View style={styles.noteContainer}>
@@ -310,14 +290,18 @@ export default function OverallScreen() {
 }
 
 const styles = StyleSheet.create({
-  mainContainer: { flex: 1, backgroundColor: "#F5F7FA" },
-  scrollContent: { padding: 20, paddingTop: 50 },
+  mainContainer: { flex: 1, backgroundColor: COLORS.background },
+  scrollContent: {
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xl,
+    alignItems: "center",
+  },
+  page: { width: "100%" },
   header: { marginBottom: 25 },
   headerTitle: {
+    ...TYPOGRAPHY.h1,
     fontSize: 26,
-    fontWeight: "800",
-    color: "#1A237E",
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
   studentInfoRow: { flexDirection: "row", flexWrap: "wrap", marginBottom: 10 },
   badge: {
@@ -334,27 +318,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 5,
   },
-  requiredLabel: { fontSize: 13, color: "#546E7A", marginRight: 6 },
+  requiredLabel: { fontSize: 13, color: COLORS.textMuted, marginRight: 6 },
   requiredValue: {
     fontSize: 13,
     fontWeight: "bold",
-    color: "#263238",
-    backgroundColor: "#ECEFF1",
+    color: COLORS.text,
+    backgroundColor: "#EEF2FF",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   chartContainer: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderRadius: 24,
-    padding: 24,
+    padding: SPACING.lg,
     alignItems: "center",
     marginBottom: 24,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    ...SHADOW.card,
   },
   circleOuter: {
     width: 150,
@@ -394,20 +374,18 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: SPACING.lg,
   },
   statCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     width: "48%",
     padding: 18,
     borderRadius: 20,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
+    ...SHADOW.soft,
     borderWidth: 1,
-    borderColor: "#F0F0F0",
+    borderColor: COLORS.border,
   },
   statIcon: { fontSize: 24, marginBottom: 12 },
   statLabel: {
@@ -452,22 +430,28 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   sectionTitle: {
+    ...TYPOGRAPHY.h2,
     fontSize: 20,
-    fontWeight: "bold",
-    color: "#263238",
-    marginBottom: 16,
-    marginLeft: 4,
+    marginBottom: SPACING.md,
+  },
+  subjectGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 12,
   },
   subjectCard: {
-    backgroundColor: "#fff",
+    backgroundColor: COLORS.surface,
     borderRadius: 16,
     padding: 18,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
+    ...SHADOW.soft,
+    width: "100%",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  subjectCardWide: {
+    width: "48%",
   },
   subjectHeader: {
     flexDirection: "row",
@@ -475,18 +459,18 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     marginBottom: 12,
   },
+  subjectHeaderLeft: { flex: 1, paddingRight: 12 },
   subjectName: {
     fontSize: 16,
     fontWeight: "700",
     color: "#37474F",
     marginBottom: 6,
-    width: "80%",
   },
   subjectFraction: { fontSize: 13, color: "#90A4AE", fontWeight: "500" },
   subjectPercent: { fontSize: 20, fontWeight: "800" },
   progressBarBackground: {
     height: 8,
-    backgroundColor: "#EFF0F6",
+    backgroundColor: "#E5E7EB",
     borderRadius: 4,
     marginBottom: 14,
     overflow: "hidden",
@@ -495,21 +479,39 @@ const styles = StyleSheet.create({
   cardFooter: { flexDirection: "row", justifyContent: "space-between" },
   presentText: { fontSize: 13, color: "#4CAF50", fontWeight: "700" },
   absentText: { fontSize: 13, color: "#F44336", fontWeight: "700" },
+  loadingText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  errorText: {
+    fontSize: 13,
+    color: COLORS.danger,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
   noteContainer: {
-    backgroundColor: "#E1F5FE",
+    backgroundColor: "#EFF6FF",
     padding: 16,
     borderRadius: 12,
     marginTop: 8,
     borderLeftWidth: 4,
-    borderLeftColor: "#039BE5",
+    borderLeftColor: COLORS.info,
   },
   noteTitle: {
-    color: "#0277BD",
+    color: COLORS.info,
     fontWeight: "bold",
     fontSize: 14,
     marginBottom: 6,
   },
-  noteText: { color: "#0288D1", fontSize: 13, lineHeight: 19 },
+  noteText: { color: COLORS.info, fontSize: 13, lineHeight: 19 },
   fab: {
     position: "absolute",
     bottom: 30,
